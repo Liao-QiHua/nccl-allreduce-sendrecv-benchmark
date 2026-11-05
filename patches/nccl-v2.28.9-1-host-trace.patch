@@ -2,7 +2,7 @@ diff --git a/makefiles/common.mk b/makefiles/common.mk
 index 2b1d1c4..0000000 100644
 --- a/makefiles/common.mk
 +++ b/makefiles/common.mk
-@@ -80,1 +80,5 @@ CXXFLAGS   := -DCUDA_MAJOR=$(CUDA_MAJOR) -DCUDA_MINOR=$(CUDA_MINOR) -fPIC -fvisi
+@@ -77,5 +77,10 @@ CXXFLAGS   := -DCUDA_MAJOR=$(CUDA_MAJOR) -DCUDA_MINOR=$(CUDA_MINOR) -fPIC -fvisi
                -I $(CUDA_INC) -I $(CUDA_INC)/cccl \
                $(CXXFLAGS)
 +
@@ -155,23 +155,23 @@ diff --git a/src/collectives.cc b/src/collectives.cc
 index ca69c9a..0000000 100644
 --- a/src/collectives.cc
 +++ b/src/collectives.cc
-@@ -11,1 +11,2 @@
+@@ -10,4 +10,5 @@
  #include "nccl.h"
  #include "nvtx_payload_schemas.h"
 +#include "include/host_trace.h"
  
  const char* ncclFuncToString(ncclFunc_t fn) {
-@@ -110,1 +110,2 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
+@@ -110,3 +110,4 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
      ncclDataType_t datatype, ncclRedOp_t op, ncclComm* comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclAllReduce", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(AllReduce, NcclNvtxParamsAllReduce,
      NVTX3_PAYLOAD(comm ? comm->commHash : 0, count * ncclTypeSize(datatype), op));
-@@ -195,1 +195,2 @@ ncclResult_t ncclSend(const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
+@@ -195,3 +195,4 @@ ncclResult_t ncclSend(const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclSend", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(Send, NcclNvtxParamsSendRecv,
      NVTX3_PAYLOAD(comm ? comm->commHash : 0, count * ncclTypeSize(datatype), peer));
-@@ -208,1 +208,2 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype, int peer,
+@@ -208,3 +208,4 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclRecv", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(Recv, NcclNvtxParamsSendRecv,
@@ -180,7 +180,7 @@ diff --git a/src/enqueue.cc b/src/enqueue.cc
 index da45abe..0000000 100644
 --- a/src/enqueue.cc
 +++ b/src/enqueue.cc
-@@ -17,1 +17,2 @@
+@@ -18,4 +18,5 @@
  #include "nvtx.h"
  #include "scheduler.h"
 +#include "include/host_trace.h"
@@ -212,7 +212,7 @@ diff --git a/src/group.cc b/src/group.cc
 index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 --- a/src/group.cc
 +++ b/src/group.cc
-@@ -17,6 +17,7 @@
+@@ -15,4 +15,5 @@
  #include "profiler.h"
  #include "nvtx.h"
 +#include "include/host_trace.h"
