@@ -4,41 +4,36 @@ This patch adds optional Host-side function duration tracing only. It does not m
 
 ## Apply to exact upstream source
 
-\`\`\`bash
-git clone https://github.com/NVIDIA/nccl.git
-cd nccl
-git checkout v2.28.9-1
-git rev-parse HEAD
-git apply /path/to/nccl-v2.28.9-1-host-trace.patch
-\`\`\`
+    git clone https://github.com/NVIDIA/nccl.git
+    cd nccl
+    git checkout v2.28.9-1
+    git rev-parse HEAD
+    git apply /path/to/nccl-v2.28.9-1-host-trace.patch
 
 ## Build
 
 Build in a separate source worktree/copy from the unmodified baseline:
 
-\`\`\`bash
-make -j src.build NCCL_ENABLE_HOST_TRACE=1
-\`\`\`
+    make -j src.build NCCL_ENABLE_HOST_TRACE=1
 
 The ordinary baseline build omits the option and compiles the trace macro to an empty statement.
 
 ## Enable at runtime
 
-\`\`\`bash
-export NCCL_HOST_TRACE=1
-export NCCL_HOST_TRACE_BYTES=8
-export NCCL_HOST_TRACE_FILE=/tmp/nccl-host-trace.csv
-\`\`\`
+    export NCCL_HOST_TRACE=1
+    export NCCL_HOST_TRACE_BYTES=8
+    export NCCL_HOST_TRACE_FILE=/tmp/nccl-host-trace.csv
 
-Each process appends Host function records to the selected CSV. Use a distinct file path per rank if preferred. NCCL_HOST_TRACE_BYTES=8 filters known-payload scopes to 8 bytes; planner/group scopes with unknown payload (0) are retained.
+Each process writes to a separate file by appending its PID to the configured file prefix. NCCL_HOST_TRACE_BYTES=8 filters known-payload scopes to 8 bytes; planner/group scopes with unknown payload (0) are retained.
 
 Fields: event, rank, pid, tid, bytes, start_ns, end_ns, duration_ns. Time uses CLOCK_MONOTONIC_RAW. The fixed buffer is flushed at process exit; overflow silently drops records after 32768 events per translation unit.
 
 ## Instrumented Host functions
 
 - Public entry: ncclAllReduce, ncclSend, ncclRecv.
+- Group API: ncclGroupStart, ncclGroupEnd.
 - Enqueue: ncclEnqueueCheck.
-- Group: ncclGroupEndInternal, groupLaunch.
+- Group internals: ncclGroupEndInternal, groupLaunch.
 - Planner: ncclPrepareTasks, ncclLaunchPrepare.
 - Upload/launch: ncclLaunchKernelBefore_NoUncapturedCuda, ncclLaunchKernel.
 - Post-launch: ncclLaunchKernelAfter_NoCuda, ncclLaunchFinish.
@@ -51,7 +46,7 @@ No NCCL Device source is modified. Use CUPTI Activity API or Nsight Systems from
 
 ## Important
 
-- This is an instrumentation patch proposal committed for review; it has not been built or tested on the remote RTX PRO 5000 host.
+- This patch has been checked against the v2.28.9-1 source file contexts, but it has not been applied and built on the remote RTX PRO 5000 host.
 - The uninstrumented end-to-end benchmark must link against a separately built upstream NCCL without this patch.
 - Use the trace build only for 8-byte stage tests.
 - For direct PCIe P2P, keep NCCL_P2P_USE_CUDA_MEMCPY=0 and verify the selected transport from NCCL logs before assuming no proxy work.
