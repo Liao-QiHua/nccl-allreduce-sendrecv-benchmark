@@ -122,9 +122,15 @@ int main(int argc,char** argv) {
     printf("operation,protocol,bytes,elements,host_api_mean_us,e2e_mean_us,warmup,iterations,validation\n");
   }
   MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-  for(size_t bytes:sizes) {
-    runCase(Operation::AllReduce,bytes,rank,comm,stream,warmup,iterations,csv,protocol);
-    runCase(Operation::SendRecv,bytes,rank,comm,stream,warmup,iterations,csv,protocol);
+  const char* only8B = std::getenv("BENCH_ONLY_8B");
+  if (only8B != nullptr && only8B[0] == '1') {
+    runCase(Operation::AllReduce,8,rank,comm,stream,warmup,iterations,csv,protocol);
+    runCase(Operation::SendRecv,8,rank,comm,stream,warmup,iterations,csv,protocol);
+  } else {
+    for(size_t bytes:sizes) {
+      runCase(Operation::AllReduce,bytes,rank,comm,stream,warmup,iterations,csv,protocol);
+      runCase(Operation::SendRecv,bytes,rank,comm,stream,warmup,iterations,csv,protocol);
+    }
   }
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
