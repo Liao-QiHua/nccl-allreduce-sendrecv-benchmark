@@ -21,7 +21,7 @@ cp -a "$BASELINE" "$TRACE"
 git -C "$TRACE" apply --check "$ROOT/patches/nccl-v2.28.9-1-host-trace.patch"
 git -C "$TRACE" apply "$ROOT/patches/nccl-v2.28.9-1-host-trace.patch"
 
-make -C "$BASELINE" -j"$(nproc)" src.build
+make -C "$BASELINE" -j"$(nproc)" src.build NCCL_ENABLE_HOST_TRACE=0
 make -C "$TRACE" -j"$(nproc)" src.build NCCL_ENABLE_HOST_TRACE=1
 
 cat <<EOF
