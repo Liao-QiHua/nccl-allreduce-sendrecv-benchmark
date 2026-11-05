@@ -18,7 +18,7 @@ new file mode 100644
 index 0000000..0000000
 --- /dev/null
 +++ b/src/include/host_trace.h
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,134 @@
 +/*************************************************************************
 + * Host-only function timing for NCCL stage tracing.
 + *
@@ -82,8 +82,10 @@ index 0000000..0000000
 +  if (count > NCCL_HOST_TRACE_CAPACITY) count = NCCL_HOST_TRACE_CAPACITY;
 +  if (count == 0) return;
 +
-+  const char* path = std::getenv("NCCL_HOST_TRACE_FILE");
-+  if (path == nullptr || path[0] == '\0') path = "nccl_host_trace.csv";
++  const char* basePath = std::getenv("NCCL_HOST_TRACE_FILE");
++  if (basePath == nullptr || basePath[0] == '\0') basePath = "nccl_host_trace.csv";
++  char path[1024];
++  std::snprintf(path, sizeof(path), "%s.%d", basePath, int(getpid()));
 +  FILE* file = std::fopen(path, "a");
 +  if (file == nullptr) return;
 +
