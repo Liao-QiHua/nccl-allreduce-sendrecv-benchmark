@@ -168,12 +168,12 @@ index ca69c9a..0000000 100644
 +  NCCL_HOST_TRACE_SCOPE("ncclAllReduce", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(AllReduce, NcclNvtxParamsAllReduce,
      NVTX3_PAYLOAD(comm ? comm->commHash : 0, count * ncclTypeSize(datatype), op));
-@@ -196,3 +196,4 @@ ncclResult_t ncclSend(const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
+@@ -195,3 +195,4 @@ ncclResult_t ncclSend(const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclSend", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(Send, NcclNvtxParamsSendRecv,
      NVTX3_PAYLOAD(comm ? comm->commHash : 0, count * ncclTypeSize(datatype), peer));
-@@ -209,3 +209,4 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype, int peer,
+@@ -208,3 +208,4 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclRecv", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(Recv, NcclNvtxParamsSendRecv,
