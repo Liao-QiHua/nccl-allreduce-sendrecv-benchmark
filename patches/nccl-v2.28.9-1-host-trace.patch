@@ -210,6 +210,32 @@ index da45abe..0000000 100644
 +  NCCL_HOST_TRACE_SCOPE("ncclEnqueueCheck", info && info->comm ? info->comm->rank : -1,
 +      info ? info->count * ncclTypeSize(info->datatype) : 0);
    // Early-out on invalid or revoked communicator
+@@ -285,2 +285,3 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
+   struct ncclKernelPlanner* planner = &comm->planner;
++  NCCL_HOST_TRACE_SCOPE("ncclTasksRegAndEnqueue", comm ? comm->rank : -1, 0);
+   struct ncclTaskColl *task;
+@@ -521,2 +521,3 @@ static ncclResult_t scheduleCollTasksToPlan(
+   ) {
++  NCCL_HOST_TRACE_SCOPE("scheduleCollTasksToPlan", comm ? comm->rank : -1, 0);
+   struct ncclKernelPlanner* planner = &comm->planner;
+@@ -1041,2 +1041,3 @@ static ncclResult_t scheduleP2pTasksToPlan(
+   ) {
++  NCCL_HOST_TRACE_SCOPE("scheduleP2pTasksToPlan", comm ? comm->rank : -1, 0);
+   int nRanks = comm->nRanks;
+@@ -2377,2 +2377,3 @@ static ncclResult_t p2pTaskAppend(
+     int peer) {
++  NCCL_HOST_TRACE_SCOPE("p2pTaskAppend", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
+   struct ncclKernelPlanner *planner = &comm->planner;
+@@ -2456,2 +2456,3 @@ static ncclResult_t collTaskAppend(
+     struct ncclDevRedOpFull opDev) {
++  NCCL_HOST_TRACE_SCOPE("collTaskAppend", comm ? comm->rank : -1, info ? info->count * ncclTypeSize(info->datatype) : 0);
+   struct ncclKernelPlanner *planner = &comm->planner;
+@@ -2548,2 +2548,3 @@ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo* info) {
+   ncclFunc_t collAPI = info->coll;
++  NCCL_HOST_TRACE_SCOPE("taskAppend", comm ? comm->rank : -1, info ? info->count * ncclTypeSize(info->datatype) : 0);
+ 
+
+
 diff --git a/src/group.cc b/src/group.cc
 index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 --- a/src/group.cc
@@ -232,3 +258,21 @@ index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 @@ -647,1 +647,2 @@ ncclResult_t ncclGroupEndInternal(ncclSimInfo_t* simInfo) {
 +  NCCL_HOST_TRACE_SCOPE("ncclGroupEndInternal", -1, 0);
    ncclResult_t ret = ncclSuccess;
+@@ -135,3 +135,4 @@ ncclResult_t ncclP2PPreconnectFunc(struct ncclAsyncJob* job_) {
+   struct ncclPreconnectJob* job = (struct ncclPreconnectJob*)job_;
+   struct ncclComm* comm = job->comm;
++  NCCL_HOST_TRACE_SCOPE("ncclP2PPreconnectFunc", comm ? comm->rank : -1, 0);
+   CUDACHECK(cudaSetDevice(comm->cudaDev));
+@@ -189,3 +189,4 @@ ncclResult_t ncclPrepareTasksAndCollPreconnectFunc(struct ncclAsyncJob* job_) {
+   struct ncclPrepareTasksAndCollPreconnectJob* job = (ncclPrepareTasksAndCollPreconnectJob*)job_;
+   struct ncclComm* comm = job->comm;
++  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasksAndCollPreconnectFunc", comm ? comm->rank : -1, 0);
+   bool needConnect;
+@@ -259,2 +259,3 @@ static ncclResult_t doLaunches(struct ncclComm* head) {
+   ncclResult_t result = ncclSuccess;
++  NCCL_HOST_TRACE_SCOPE("doLaunches", -1, 0);
+   struct ncclComm* cliqueHead = head;
+@@ -466,2 +466,3 @@ static ncclResult_t ncclPrepareTasksAndCollPreconnect(struct ncclComm* comm, ncclSimInfo_t* simInfo, struct ncclIntruQueue<struct ncclAsyncJob, &ncclAsyncJob::next>* asyncCollJobs) {
+   if (ncclParamSingleProcMemRegEnable()) {
++  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasksAndCollPreconnect", comm ? comm->rank : -1, 0);
+     struct ncclPrepareTasksAndCollPreconnectJob* job;
