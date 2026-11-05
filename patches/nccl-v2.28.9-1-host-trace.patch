@@ -227,11 +227,9 @@ index da45abe..0000000 100644
 +  NCCL_HOST_TRACE_SCOPE("collTaskAppend", comm ? comm->rank : -1, info ? info->count * ncclTypeSize(info->datatype) : 0);
    struct ncclKernelPlanner *planner = &comm->planner;
 @@ -2548,2 +2548,3 @@ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo* info) {
-   ncclFunc_t collAPI = info->coll;
+ static ncclResult_t taskAppend(struct ncclComm* comm, struct ncclInfo* info) {
 +  NCCL_HOST_TRACE_SCOPE("taskAppend", comm ? comm->rank : -1, info ? info->count * ncclTypeSize(info->datatype) : 0);
- 
-
-
+   ncclFunc_t collAPI = info->coll;
 @@ -2621,1 +2621,3 @@ ncclResult_t ncclEnqueueCheck(struct ncclInfo* info) {
 +  NCCL_HOST_TRACE_SCOPE("ncclEnqueueCheck", info && info->comm ? info->comm->rank : -1,
 +      info ? info->count * ncclTypeSize(info->datatype) : 0);
@@ -267,10 +265,9 @@ index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 +  NCCL_HOST_TRACE_SCOPE("doLaunches", -1, 0);
    struct ncclComm* cliqueHead = head;
 @@ -466,2 +466,3 @@ static ncclResult_t ncclPrepareTasksAndCollPreconnect(struct ncclComm* comm, ncclSimInfo_t* simInfo, struct ncclIntruQueue<struct ncclAsyncJob, &ncclAsyncJob::next>* asyncCollJobs) {
-   if (ncclParamSingleProcMemRegEnable()) {
+ static ncclResult_t ncclPrepareTasksAndCollPreconnect(struct ncclComm* comm, ncclSimInfo_t* simInfo, struct ncclIntruQueue<struct ncclAsyncJob, &ncclAsyncJob::next>* asyncCollJobs) {
 +  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasksAndCollPreconnect", comm ? comm->rank : -1, 0);
-     struct ncclPrepareTasksAndCollPreconnectJob* job;
-
+   if (ncclParamSingleProcMemRegEnable()) {
 @@ -510,1 +510,2 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob *job_, ncclSimInfo_t* simInfo = NULL) {
 +  NCCL_HOST_TRACE_SCOPE("groupLaunch", -1, 0);
    ncclResult_t ret = ncclSuccess;
