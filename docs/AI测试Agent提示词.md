@@ -10,7 +10,7 @@ https://github.com/Liao-QiHua/nccl-allreduce-sendrecv-benchmark
 
 perf/nccl-2.28.9-reduce-sendrecv
 
-先获取仓库最新提交，检查分支、工作区和已有结果。阅读 README.md、docs/测试设计与实施文档.md、docs/执行链路与计时边界.md、docs/源码插桩方案-待确认.md、docs/Host插桩构建与运行.md、instrumentation/README.md、patches/README.md、benchmark 源码和 scripts 下的脚本。以实际代码为准，指出文档与代码不一致之处。
+先获取仓库最新提交，检查分支、工作区和已有结果。阅读 README.md、docs/测试设计与实施文档.md、docs/执行链路与计时边界.md、docs/调用链耗时报告模板.md、docs/源码插桩方案-待确认.md、docs/Host插桩构建与运行.md、instrumentation/README.md、patches/README.md、benchmark 源码和 scripts 下的脚本。以实际代码为准，指出文档与代码不一致之处。
 
 本任务只有两个核心交付目标：
 
