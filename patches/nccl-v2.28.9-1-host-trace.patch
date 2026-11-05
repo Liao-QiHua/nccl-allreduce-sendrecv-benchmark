@@ -188,9 +188,21 @@ index da45abe..0000000 100644
 +#include "include/host_trace.h"
  
  #include <cstring> // std::memcpy
+@@ -286,2 +286,3 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
+   struct ncclKernelPlanner* planner = &comm->planner;
++  NCCL_HOST_TRACE_SCOPE("ncclTasksRegAndEnqueue", comm ? comm->rank : -1, 0);
+   struct ncclTaskColl *task;
 @@ -349,1 +349,2 @@ ncclResult_t ncclPrepareTasks(struct ncclComm* comm, bool* algoNeedConnect, bool* needConnect, ncclSimInfo_t* simInfo) {
 +  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasks", comm ? comm->rank : -1, 0);
    struct ncclKernelPlanner* planner = &comm->planner;
+@@ -521,2 +521,3 @@ static ncclResult_t scheduleCollTasksToPlan(
+   ) {
++  NCCL_HOST_TRACE_SCOPE("scheduleCollTasksToPlan", comm ? comm->rank : -1, 0);
+   struct ncclKernelPlanner* planner = &comm->planner;
+@@ -1041,2 +1041,3 @@ static ncclResult_t scheduleP2pTasksToPlan(
+   ) {
++  NCCL_HOST_TRACE_SCOPE("scheduleP2pTasksToPlan", comm ? comm->rank : -1, 0);
+   int nRanks = comm->nRanks;
 @@ -1418,1 +1418,2 @@ ncclResult_t ncclLaunchPrepare(struct ncclComm* comm) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchPrepare", comm ? comm->rank : -1, 0);
    ncclResult_t result = ncclSuccess;
@@ -206,22 +218,6 @@ index da45abe..0000000 100644
 @@ -1692,1 +1692,2 @@ ncclResult_t ncclLaunchFinish(struct ncclComm* comm) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchFinish", comm ? comm->rank : -1, 0);
    struct ncclKernelPlanner* planner = &comm->planner;
-@@ -2621,1 +2621,3 @@ ncclResult_t ncclEnqueueCheck(struct ncclInfo* info) {
-+  NCCL_HOST_TRACE_SCOPE("ncclEnqueueCheck", info && info->comm ? info->comm->rank : -1,
-+      info ? info->count * ncclTypeSize(info->datatype) : 0);
-   // Early-out on invalid or revoked communicator
-@@ -285,2 +285,3 @@ ncclResult_t ncclTasksRegAndEnqueue(struct ncclComm* comm) {
-   struct ncclKernelPlanner* planner = &comm->planner;
-+  NCCL_HOST_TRACE_SCOPE("ncclTasksRegAndEnqueue", comm ? comm->rank : -1, 0);
-   struct ncclTaskColl *task;
-@@ -521,2 +521,3 @@ static ncclResult_t scheduleCollTasksToPlan(
-   ) {
-+  NCCL_HOST_TRACE_SCOPE("scheduleCollTasksToPlan", comm ? comm->rank : -1, 0);
-   struct ncclKernelPlanner* planner = &comm->planner;
-@@ -1041,2 +1041,3 @@ static ncclResult_t scheduleP2pTasksToPlan(
-   ) {
-+  NCCL_HOST_TRACE_SCOPE("scheduleP2pTasksToPlan", comm ? comm->rank : -1, 0);
-   int nRanks = comm->nRanks;
 @@ -2377,2 +2377,3 @@ static ncclResult_t p2pTaskAppend(
      int peer) {
 +  NCCL_HOST_TRACE_SCOPE("p2pTaskAppend", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
@@ -236,6 +232,10 @@ index da45abe..0000000 100644
  
 
 
+@@ -2621,1 +2621,3 @@ ncclResult_t ncclEnqueueCheck(struct ncclInfo* info) {
++  NCCL_HOST_TRACE_SCOPE("ncclEnqueueCheck", info && info->comm ? info->comm->rank : -1,
++      info ? info->count * ncclTypeSize(info->datatype) : 0);
+   // Early-out on invalid or revoked communicator
 diff --git a/src/group.cc b/src/group.cc
 index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 --- a/src/group.cc
@@ -252,23 +252,17 @@ index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 @@ -105,1 +106,2 @@ ncclResult_t ncclGroupEnd() {
 +  NCCL_HOST_TRACE_SCOPE("ncclGroupEnd", -1, 0);
    ncclResult_t ret = ncclSuccess;
-@@ -510,1 +510,2 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob *job_, ncclSimInfo_t* simInfo = NULL) {
-+  NCCL_HOST_TRACE_SCOPE("groupLaunch", -1, 0);
-   ncclResult_t ret = ncclSuccess;
-@@ -647,1 +647,2 @@ ncclResult_t ncclGroupEndInternal(ncclSimInfo_t* simInfo) {
-+  NCCL_HOST_TRACE_SCOPE("ncclGroupEndInternal", -1, 0);
-   ncclResult_t ret = ncclSuccess;
-@@ -135,3 +135,4 @@ ncclResult_t ncclP2PPreconnectFunc(struct ncclAsyncJob* job_) {
+@@ -136,3 +136,4 @@ ncclResult_t ncclP2PPreconnectFunc(struct ncclAsyncJob* job_) {
    struct ncclPreconnectJob* job = (struct ncclPreconnectJob*)job_;
    struct ncclComm* comm = job->comm;
 +  NCCL_HOST_TRACE_SCOPE("ncclP2PPreconnectFunc", comm ? comm->rank : -1, 0);
    CUDACHECK(cudaSetDevice(comm->cudaDev));
-@@ -189,3 +189,4 @@ ncclResult_t ncclPrepareTasksAndCollPreconnectFunc(struct ncclAsyncJob* job_) {
+@@ -190,3 +190,4 @@ ncclResult_t ncclPrepareTasksAndCollPreconnectFunc(struct ncclAsyncJob* job_) {
    struct ncclPrepareTasksAndCollPreconnectJob* job = (ncclPrepareTasksAndCollPreconnectJob*)job_;
    struct ncclComm* comm = job->comm;
 +  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasksAndCollPreconnectFunc", comm ? comm->rank : -1, 0);
    bool needConnect;
-@@ -259,2 +259,3 @@ static ncclResult_t doLaunches(struct ncclComm* head) {
+@@ -260,2 +260,3 @@ static ncclResult_t doLaunches(struct ncclComm* head) {
    ncclResult_t result = ncclSuccess;
 +  NCCL_HOST_TRACE_SCOPE("doLaunches", -1, 0);
    struct ncclComm* cliqueHead = head;
@@ -276,3 +270,10 @@ index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
    if (ncclParamSingleProcMemRegEnable()) {
 +  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasksAndCollPreconnect", comm ? comm->rank : -1, 0);
      struct ncclPrepareTasksAndCollPreconnectJob* job;
+
+@@ -510,1 +510,2 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob *job_, ncclSimInfo_t* simInfo = NULL) {
++  NCCL_HOST_TRACE_SCOPE("groupLaunch", -1, 0);
+   ncclResult_t ret = ncclSuccess;
+@@ -647,1 +647,2 @@ ncclResult_t ncclGroupEndInternal(ncclSimInfo_t* simInfo) {
++  NCCL_HOST_TRACE_SCOPE("ncclGroupEndInternal", -1, 0);
+   ncclResult_t ret = ncclSuccess;
