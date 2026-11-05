@@ -220,6 +220,12 @@ index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 +#include "include/host_trace.h"
  
  #define GROUP_MAX_RECLAIM_STEPS 10
+@@ -94,1 +94,2 @@ ncclResult_t ncclGroupStart() {
++  NCCL_HOST_TRACE_SCOPE("ncclGroupStart", -1, 0);
+   ncclResult_t ret = ncclSuccess;
+@@ -104,1 +105,2 @@ ncclResult_t ncclGroupEnd() {
++  NCCL_HOST_TRACE_SCOPE("ncclGroupEnd", -1, 0);
+   ncclResult_t ret = ncclSuccess;
 @@ -510,1 +510,2 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob *job_, ncclSimInfo_t* simInfo = NULL) {
 +  NCCL_HOST_TRACE_SCOPE("groupLaunch", -1, 0);
    ncclResult_t ret = ncclSuccess;
