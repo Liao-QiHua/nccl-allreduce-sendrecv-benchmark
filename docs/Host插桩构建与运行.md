@@ -1,71 +1,63 @@
-# NCCL Host Trace 实施与构建
+# NCCL Host Trace 构建与阶段运行
 
-## 当前状态
+## 两套 NCCL 必须隔离
 
-- 已生成针对 NVIDIA/nccl v2.28.9-1 的 Host-only 源码 Patch。
-- Patch 只修改 Host C++ 文件和 makefiles/common.mk；不修改 src/device 下任何文件。
-- GPU Kernel 完整执行时间由测试侧 CUPTI Activity / Nsight Systems 获取。
-- 该 Patch 尚未在远端 RTX PRO 5000 机器编译和验证；请先执行 scripts/prepare_nccl_builds.sh。
+- Baseline：官方 NVIDIA/nccl v2.28.9-1 原始源码，不应用 Patch；用于正式端到端测试。
+- Trace：同一 Tag 的独立源码副本，应用 patches/nccl-v2.28.9-1-host-trace.patch；用于 8 B Host 阶段测试。
 
-## 两套源码树必须分离
+构建脚本：
 
-scripts/prepare_nccl_builds.sh 创建两个独立目录：
-- nccl-v2.28.9-1-baseline：官方原始源码，不应用 Patch，用于 8B / 16KiB / 8MiB 端到端。
-- nccl-v2.28.9-1-host-trace：应用 Host Trace Patch，用于 8B 阶段计时。
+    bash scripts/prepare_nccl_builds.sh /workspace/nccl-bench
 
-两个目录分别编译到各自 build 目录。不要把 Trace 的 libnccl.so 放入 Baseline 的 LD_LIBRARY_PATH。
+执行前确认目录不存在，脚本会拒绝覆盖已有源码目录。
 
-## 编译
+## Baseline 端到端
 
-```bash
-bash scripts/prepare_nccl_builds.sh /workspace/nccl-bench
-```
+    export NCCL_HOME=/workspace/nccl-bench/nccl-v2.28.9-1-baseline/build
+    export LD_LIBRARY_PATH="$NCCL_HOME/lib:$LD_LIBRARY_PATH"
+    unset NCCL_HOST_TRACE NCCL_HOST_TRACE_BYTES NCCL_HOST_TRACE_FILE
+    bash scripts/build.sh
+    bash scripts/run_all.sh
 
-## 端到端（无插桩）
+确认 ldd 指向 Baseline libnccl.so。运行 8 B、16 KiB、8 MiB，SIMPLE/LL，20 warmup/100 measured。
 
-```bash
-export NCCL_HOME=/workspace/nccl-bench/nccl-v2.28.9-1-baseline/build
-export LD_LIBRARY_PATH="$NCCL_HOME/lib:$LD_LIBRARY_PATH"
-unset NCCL_HOST_TRACE
-unset NCCL_HOST_TRACE_BYTES
-bash scripts/build.sh
-bash scripts/run_all.sh
-```
+## Trace 阶段测试
 
-确认 ldd reduce_sendrecv_bench 指向 baseline build/lib/libnccl.so。
+    export NCCL_TRACE_HOME=/workspace/nccl-bench/nccl-v2.28.9-1-host-trace/build
+    export BENCH_BIN=./reduce_sendrecv_bench
+    bash scripts/run_stage_trace.sh
 
-## 阶段测试（Host 插桩 + 外部 Kernel Activity）
+脚本只运行 8 B 的 AllReduce 和双向 SendRecv，分别测试 SIMPLE/LL。设置 NCCL_HOST_TRACE=1、NCCL_HOST_TRACE_BYTES=8、NCCL_P2P_USE_CUDA_MEMCPY=0。必须检查实际 NCCL 日志中的 Transport 和协议。
 
-```bash
-export NCCL_TRACE_HOME=/workspace/nccl-bench/nccl-v2.28.9-1-host-trace/build
-export BENCH_BIN=./reduce_sendrecv_bench
-bash scripts/run_stage_trace.sh
-```
+## 本次 Patch 新增 Host 计时点
 
-run_stage_trace.sh 固定 BENCH_ONLY_8B=1，分别运行 SIMPLE / LL；测试程序每种协议只跑 8B AllReduce 和双向 SendRecv。Host Trace 输出按进程 PID 后缀区分，避免两个 MPI rank 写同一个文件。
+- taskAppend
+- collTaskAppend
+- p2pTaskAppend
+- scheduleCollTasksToPlan
+- scheduleP2pTasksToPlan
+- ncclTasksRegAndEnqueue
+- ncclPrepareTasksAndCollPreconnect
+- ncclPrepareTasksAndCollPreconnectFunc（条件路径）
+- ncclP2PPreconnectFunc（条件路径）
+- doLaunches
 
-CUPTI Activity 或 Nsight Systems 需要在目标机安装的 CUDA Toolkit 中可用。它们从测试侧采集每个 kernel 的 GPU start/end/duration，不需要修改 NCCL Device 源码。
+既有 API、Group、Prepare、Launch 计时点仍保留。
 
-## Host Trace 环境变量
+## GPU Kernel
 
-- NCCL_HOST_TRACE=1：运行时开启 Host trace。
-- NCCL_HOST_TRACE_BYTES=8：只记录已知 payload 为 8 字节的 scope；planner/group 事件的 bytes=0，保留用于执行链路分析。
-- NCCL_HOST_TRACE_FILE：输出文件前缀；每个进程自动追加 PID。
-- Trace buffer 固定容量为每个编译单元 32768 条，超出后丢弃后续事件。
+不修改 NCCL Device 源码。使用 CUPTI Activity API 或 Nsight Systems 采集 Kernel 名称、GPU Start/End/Duration、Stream 和可用的 Grid/Block 信息。每个 Kernel 独立统计；重叠 Kernel 不得简单相加。
 
-Host 时间使用 CLOCK_MONOTONIC_RAW。父子函数区间存在嵌套，不能把 inclusive duration 简单求和。groupLaunch / groupEnd 的 rank 记录为 -1，因为该函数边界本身不一定对应单一 communicator。
+## 结果分析要求
 
-## Proxy
+- 每个 Rank / PID / TID 分别分析 Host 事件。
+- 从 120 次调用中排除 20 次 warmup，只统计正式 100 次。
+- 每个函数节点在层级文本树中直接标注 calls、mean inclusive、mean exclusive、P50、P90、P99、min、max。
+- 父子函数 Inclusive 不相加；Exclusive 通过子区间并集计算。
+- Group API rank=-1 时按 PID/TID 关联，不伪造 Rank。
+- 未执行的条件路径标记 N/A。
+- 输出 AllReduce 和 Send/Recv 两棵带实测耗时的调用树，以及 Rank/Host/GPU 串行并行时间线。
 
-当前阶段测试脚本显式设置 NCCL_P2P_USE_CUDA_MEMCPY=0，目标是默认 P2P direct path。仍须从 NCCL INFO 日志确认实际 transport；如果运行时选择 NET/SHM 或出现 Proxy 工作，则不能把它解释为 direct P2P 无 Proxy。
+## 验证状态
 
-## 验证清单
-
-1. Patch 对 v2.28.9-1 执行 git apply --check。
-2. Baseline 编译成功。
-3. Trace 编译成功。
-4. ldd 确认两种测试各自链接正确的 libnccl.so。
-5. Baseline 端到端运行期间没有 NCCL_HOST_TRACE 环境变量，且没有 trace CSV。
-6. Trace 运行仅执行 8B，且生成 Host CSV。
-7. CUPTI/Nsight 时间线能关联各 rank 的 NCCL kernel。
-8. 比较 Trace 与 Baseline 8B 延迟，报告插桩扰动。
+新增插桩 hunk 已与官方 v2.28.9-1 源码上下文静态核对。尚未在远端 RTX PRO 5000 主机完成 git apply --check、编译及 GPU 运行；必须完成这些步骤后才能标记为验证通过。
