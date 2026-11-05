@@ -22,7 +22,7 @@ Repository: https://github.com/Liao-QiHua/nccl-allreduce-sendrecv-benchmark
 ## Repository layout
 - benchmark/: CUDA/MPI benchmark source.
 - scripts/: build, run, and PCIe topology checks.
-- docs/: Chinese test design, call chains, and AI Agent prompt.
+- docs/: Chinese test design, call chains, measured call-tree report template, and AI Agent prompt.
 - instrumentation/: Host instrumentation design and coverage.
 - patches/: optional Host Trace patch.
 
@@ -36,6 +36,7 @@ Repository: https://github.com/Liao-QiHua/nccl-allreduce-sendrecv-benchmark
 
 See:
 - docs/测试设计与实施文档.md
+- docs/调用链耗时报告模板.md
 - docs/执行链路与计时边界.md
 - docs/AI测试Agent提示词.md
 - docs/源码插桩方案-待确认.md
