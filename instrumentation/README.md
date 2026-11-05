@@ -1,42 +1,50 @@
-# NCCL v2.28.9-1 源码插桩实施说明
+# NCCL v2.28.9-1 Host Trace 插桩说明
 
-当前已生成 Host-only Patch：`patches/nccl-v2.28.9-1-host-trace.patch`。
+## 1. 范围
 
-## 已实施的源码改动设计
+本 Patch 用于 8 B 阶段分析。只在 NCCL Host C++ 路径添加函数 wall-time 事件，不修改 src/device 下的任何文件，不在 GPU Kernel 内增加计时代码。GPU Kernel 完整执行时间由测试侧 CUPTI Activity 或 Nsight Systems 获取。
 
-Patch 修改：
-- `makefiles/common.mk`：通过 `NCCL_ENABLE_HOST_TRACE=1` 单独启用 Host trace 编译宏。
-- `src/include/host_trace.h`：固定容量事件缓冲区、CLOCK_MONOTONIC_RAW 时间戳和进程退出时 CSV 导出。
-- `src/collectives.cc`：AllReduce、Send、Recv API 入口时间。
-- `src/enqueue.cc`：Enqueue、Prepare、Plan、Work Upload、Kernel Launch、Launch Finish 时间。
-- `src/group.cc`：GroupEnd 和 groupLaunch 时间。
+端到端正式结果必须使用未插桩 Baseline NCCL；Trace NCCL 仅用于 8 B 阶段拆解。
 
-没有修改任何 `src/device/*` 文件，也没有加入 Proxy 计时。
+## 2. 新增的任务入队与规划插桩
 
-## 运行时控制
+在原有 API、Group、Prepare 和 Launch 事件之外，Patch 新增：
 
-编译时：
-```bash
-make -j src.build NCCL_ENABLE_HOST_TRACE=1
-```
+- taskAppend：AllReduce / SendRecv 的公共 task 分发入口。
+- collTaskAppend：Collective task 入队，主要对应 AllReduce。
+- p2pTaskAppend：P2P Send/Recv task 入队。
+- scheduleCollTasksToPlan：Collective task 转换为 Kernel Plan。
+- scheduleP2pTasksToPlan：P2P Send/Recv task 配对、拆分并转换为 Kernel Plan。
+- ncclTasksRegAndEnqueue：Work 注册与入队。
+- ncclPrepareTasksAndCollPreconnect：任务准备与连接准备。
+- ncclPrepareTasksAndCollPreconnectFunc：条件异步准备回调。
+- ncclP2PPreconnectFunc：条件 P2P 连接预热回调。
+- doLaunches：Launch 准备、launch rounds 和收尾调度。
 
-运行时：
-```bash
-NCCL_HOST_TRACE=1 NCCL_HOST_TRACE_BYTES=8 \
-NCCL_HOST_TRACE_FILE=/tmp/nccl-host-trace.csv \
-./reduce_sendrecv_bench
-```
+同时保留：
+- ncclAllReduce / ncclSend / ncclRecv。
+- ncclGroupStart / ncclGroupEnd / ncclGroupEndInternal / groupLaunch。
+- ncclEnqueueCheck / ncclPrepareTasks / ncclLaunchPrepare。
+- ncclLaunchKernelBefore_NoUncapturedCuda / ncclLaunchKernel / ncclLaunchKernelAfter_NoCuda / ncclLaunchFinish。
 
-每个进程会自动在文件名前缀后追加 PID，避免双 Rank 竞争写同一个 CSV。未知 payload 的 planner/group 事件 bytes=0，会保留用于时间线分析。
+## 3. 输出与解释
 
-## GPU Kernel 时间
+Host Trace 使用 CLOCK_MONOTONIC_RAW，记录 event、rank、pid、tid、bytes、start_ns、end_ns、duration_ns。不同 translation unit 有各自的固定缓冲区，退出时追加写入当前进程的 PID 文件。
 
-不修改 Device 源码。Kernel 完整执行时间通过测试侧 CUPTI Activity API 或 Nsight Systems 采集。每个 Kernel 独立报告 GPU start/end/duration；多 Kernel 或重叠 Kernel 不应简单求和。
+NCCL_HOST_TRACE_BYTES=8 过滤已知非 8B payload；bytes=0 的阶段事件保留。Group / group-wide 函数可能 rank=-1，按 PID/TID 与时间线分析，不要强行分配 Rank。
 
-## Proxy
+所有 Scope 都是 inclusive wall duration。父子函数区间重叠，不得直接求和。Exclusive 应通过同一线程中直接子区间的并集计算；如果事件数据不足以可靠推导，报告 N/A。
 
-阶段脚本设置 `NCCL_P2P_USE_CUDA_MEMCPY=0`，目标为默认 direct P2P。仍需查看 NCCL 日志确认实际 Transport。若运行时使用 NET/SHM 或出现 Proxy 工作，不得将结果标注为纯 direct P2P。
+当前事件格式没有显式 parent_event_id / operation_sequence。分析时需要结合 PID/TID、API 调用顺序、时间包含关系和源码调用关系重建操作窗口。20 次 warmup 必须从正式 100 次统计中排除。
 
-## 验证状态
+## 4. 条件路径
 
-Patch 的 hunk 和上下文已按 NVIDIA/nccl `v2.28.9-1` 对应源码文件核对。当前执行环境无法连接 GitHub 网络克隆源码，也没有 RTX PRO 5000 远端构建环境，因此尚未完成 `git apply --check`、编译和 GPU 运行验证。必须在目标机器执行 `scripts/prepare_nccl_builds.sh` 并保存日志后，才能标记为已验证。
+- ncclPrepareTasksAndCollPreconnectFunc 仅在 SingleProcMemRegEnable 对应异步路径触发。
+- ncclP2PPreconnectFunc 仅在存在待处理的 P2P preconnect job 时触发，通常可能发生在初始化/预热阶段。
+- scheduleCollTasksToPlan 用于 Collective 任务规划。
+- scheduleP2pTasksToPlan 用于 P2P 任务规划。
+- 没有执行的路径写 N/A，不写 0 us。
+
+## 5. 验证状态
+
+Patch 适用基线为 NVIDIA/nccl v2.28.9-1。当前 Patch 已对新增和既有 hunk 的行号、上下文及排序进行静态核对；这不等于目标机 git apply --check、编译或 GPU 运行验证。必须在远端执行并保留日志后，才能标记为已验证。
