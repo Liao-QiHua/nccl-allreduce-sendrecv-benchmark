@@ -2,7 +2,7 @@ diff --git a/makefiles/common.mk b/makefiles/common.mk
 index 2b1d1c4..0000000 100644
 --- a/makefiles/common.mk
 +++ b/makefiles/common.mk
-@@ -77,5 +77,10 @@ CXXFLAGS   := -DCUDA_MAJOR=$(CUDA_MAJOR) -DCUDA_MINOR=$(CUDA_MINOR) -fPIC -fvisi
+@@ -79,5 +79,10 @@ CXXFLAGS   := -DCUDA_MAJOR=$(CUDA_MAJOR) -DCUDA_MINOR=$(CUDA_MINOR) -fPIC -fvisi
                -I $(CUDA_INC) -I $(CUDA_INC)/cccl \
                $(CXXFLAGS)
 +
@@ -166,12 +166,12 @@ index ca69c9a..0000000 100644
 +  NCCL_HOST_TRACE_SCOPE("ncclAllReduce", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(AllReduce, NcclNvtxParamsAllReduce,
      NVTX3_PAYLOAD(comm ? comm->commHash : 0, count * ncclTypeSize(datatype), op));
-@@ -195,3 +195,4 @@ ncclResult_t ncclSend(const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
+@@ -196,3 +196,4 @@ ncclResult_t ncclSend(const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclSend", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(Send, NcclNvtxParamsSendRecv,
      NVTX3_PAYLOAD(comm ? comm->commHash : 0, count * ncclTypeSize(datatype), peer));
-@@ -208,3 +208,4 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype, int peer,
+@@ -209,3 +209,4 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream) {
 +  NCCL_HOST_TRACE_SCOPE("ncclRecv", comm ? comm->rank : -1, count * ncclTypeSize(datatype));
    NVTX3_FUNC_WITH_PARAMS(Recv, NcclNvtxParamsSendRecv,
@@ -186,25 +186,25 @@ index da45abe..0000000 100644
 +#include "include/host_trace.h"
  
  #include <cstring> // std::memcpy
-@@ -348,1 +348,2 @@ ncclResult_t ncclPrepareTasks(struct ncclComm* comm, bool* algoNeedConnect, bool* needConnect, ncclSimInfo_t* simInfo) {
+@@ -349,1 +349,2 @@ ncclResult_t ncclPrepareTasks(struct ncclComm* comm, bool* algoNeedConnect, bool* needConnect, ncclSimInfo_t* simInfo) {
 +  NCCL_HOST_TRACE_SCOPE("ncclPrepareTasks", comm ? comm->rank : -1, 0);
    struct ncclKernelPlanner* planner = &comm->planner;
-@@ -1417,1 +1417,2 @@ ncclResult_t ncclLaunchPrepare(struct ncclComm* comm) {
+@@ -1418,1 +1418,2 @@ ncclResult_t ncclLaunchPrepare(struct ncclComm* comm) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchPrepare", comm ? comm->rank : -1, 0);
    ncclResult_t result = ncclSuccess;
-@@ -1552,1 +1552,2 @@ ncclResult_t ncclLaunchKernelBefore_NoUncapturedCuda(struct ncclComm* comm, struct ncclKernelPlan* plan) {
+@@ -1553,1 +1553,2 @@ ncclResult_t ncclLaunchKernelBefore_NoUncapturedCuda(struct ncclComm* comm, struct ncclKernelPlan* plan) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchKernelBefore_NoUncapturedCuda", comm ? comm->rank : -1, 0);
    // This code is called after we've checked in to the intra-process barrier
-@@ -1565,1 +1565,2 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan) {
+@@ -1566,1 +1566,2 @@ ncclResult_t ncclLaunchKernel(struct ncclComm* comm, struct ncclKernelPlan* plan) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchKernel", comm ? comm->rank : -1, 0);
    ncclResult_t ret = ncclSuccess;
-@@ -1666,1 +1666,2 @@ ncclResult_t ncclLaunchKernelAfter_NoCuda(struct ncclComm* comm, struct ncclKernelPlan* plan) {
+@@ -1667,1 +1667,2 @@ ncclResult_t ncclLaunchKernelAfter_NoCuda(struct ncclComm* comm, struct ncclKernelPlan* plan) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchKernelAfter_NoCuda", comm ? comm->rank : -1, 0);
    if (!plan->isHostCbEnq) {
-@@ -1691,1 +1691,2 @@ ncclResult_t ncclLaunchFinish(struct ncclComm* comm) {
+@@ -1692,1 +1692,2 @@ ncclResult_t ncclLaunchFinish(struct ncclComm* comm) {
 +  NCCL_HOST_TRACE_SCOPE("ncclLaunchFinish", comm ? comm->rank : -1, 0);
    struct ncclKernelPlanner* planner = &comm->planner;
-@@ -2620,1 +2620,3 @@ ncclResult_t ncclEnqueueCheck(struct ncclInfo* info) {
+@@ -2621,1 +2621,3 @@ ncclResult_t ncclEnqueueCheck(struct ncclInfo* info) {
 +  NCCL_HOST_TRACE_SCOPE("ncclEnqueueCheck", info && info->comm ? info->comm->rank : -1,
 +      info ? info->count * ncclTypeSize(info->datatype) : 0);
    // Early-out on invalid or revoked communicator
@@ -218,9 +218,9 @@ index aa2824412a65680983ecb65008ab6b596bf72409..0000000 100644
 +#include "include/host_trace.h"
  
  #define GROUP_MAX_RECLAIM_STEPS 10
-@@ -509,1 +509,2 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob *job_, ncclSimInfo_t* simInfo = NULL) {
+@@ -510,1 +510,2 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob *job_, ncclSimInfo_t* simInfo = NULL) {
 +  NCCL_HOST_TRACE_SCOPE("groupLaunch", -1, 0);
    ncclResult_t ret = ncclSuccess;
-@@ -646,1 +646,2 @@ ncclResult_t ncclGroupEndInternal(ncclSimInfo_t* simInfo) {
+@@ -647,1 +647,2 @@ ncclResult_t ncclGroupEndInternal(ncclSimInfo_t* simInfo) {
 +  NCCL_HOST_TRACE_SCOPE("ncclGroupEndInternal", -1, 0);
    ncclResult_t ret = ncclSuccess;
