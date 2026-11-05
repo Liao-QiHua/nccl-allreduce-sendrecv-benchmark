@@ -1,14 +1,23 @@
 # NCCL Reduce / SendRecv Benchmark
 
-NCCL v2.28.9-1 benchmark project for two local MPI ranks / two PCIe-connected GPUs.
+NVIDIA NCCL v2.28.9-1; two local MPI ranks; one PCIe-connected GPU per rank.
 
-Planned coverage:
-- AllReduce: 8 B, 16 KiB, 8 MiB; FP32 SUM.
-- Send/Recv: bidirectional peer exchange, same payload sizes.
-- Protocol runs: NCCL_PROTO=Simple and NCCL_PROTO=LL, separately.
-- 20 warmups and 100 measured iterations per operation and payload.
-- Host API time and end-to-end completion time.
-- 8-byte-only detailed Host and Device instrumentation.
+## Scope
+- AllReduce and paired Send/Recv.
+- FP32; payloads 8 bytes, 16 KiB, 8 MiB.
+- Force protocol separately with NCCL_PROTO=Simple and NCCL_PROTO=LL.
+- Leave NCCL_ALGO unset for runtime algorithm selection; record actual selection from NCCL logs.
+- 20 warmups and 100 measured iterations for every operation/protocol/payload.
+- Detailed Host and Device stage timing is limited to 8-byte runs.
 
-See docs/ for the test design. Source instrumentation must be validated against the exact
-NCCL v2.28.9-1 checkout before being described as a verified patch.
+8 bytes means two FP32 elements, not eight billion elements.
+
+## Repository layout
+- benchmark/: CUDA/MPI benchmark source.
+- scripts/: build, run, and PCIe topology checks.
+- docs/: Chinese test design and execution plan.
+- instrumentation/: exact-source instrumentation plan.
+
+The source instrumentation is not considered a verified NCCL patch until applied to the exact v2.28.9-1 source, built, and validated on the target GPU host.
+
+See docs/测试设计与实施文档.md.
