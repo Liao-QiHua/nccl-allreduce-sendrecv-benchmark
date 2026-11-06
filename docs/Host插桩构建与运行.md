@@ -58,6 +58,30 @@
 - 未执行的条件路径标记 N/A。
 - 输出 AllReduce 和 Send/Recv 两棵带实测耗时的调用树，以及 Rank/Host/GPU 串行并行时间线。
 
+## 统计脚本
+
+Host 阶段统计一律用 `scripts/stage_stats.py`，不要手工或临时脚本聚合 CSV：
+
+    python3 scripts/stage_stats.py <trace_dir>                  # 调用树，仅均值
+    python3 scripts/stage_stats.py <trace_dir> --percentiles     # 追加 P50/P90/P99/min/max
+    python3 scripts/stage_stats.py <trace_dir> --format csv      # 每节点一行，便于并表
+
+脚本负责以下四点，历史错误都出在这四处：
+
+1. 事件中的 `duration_ns` 是纳秒，所有输出统一换算为微秒。
+2. 按 (pid, 操作类型) 先剔除 20 次 warmup 窗口再聚合。曾因未剔除，首个窗口里的 P2P preconnect 停顿（约 0.5 s）把 `groupLaunch` 均值抬到 4999 µs。
+3. Exclusive = `duration - 子区间并集`，不是子函数 duration 求和；区间部分重叠时也不会错算。
+4. 未执行的条件路径输出 `N/A`，不输出 `0 us`。
+
+锚点耗时明显高于中位数的窗口会被显式告警，而不是混进均值里悄悄拉高。
+
+Kernel 侧对应 `scripts/kernel_stats.py`（直接读 Nsight SQLite），同样剔除 warmup 并同时给出中位数；均值被长尾拉高时会标注。
+
+两个脚本的自检：
+
+    python3 scripts/test_stats.py
+
+
 ## 验证状态
 
 新增插桩 hunk 已与官方 v2.28.9-1 源码上下文静态核对。尚未在远端 RTX PRO 5000 主机完成 git apply --check、编译及 GPU 运行；必须完成这些步骤后才能标记为验证通过。

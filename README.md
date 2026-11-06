@@ -21,10 +21,34 @@ Repository: https://github.com/Liao-QiHua/nccl-allreduce-sendrecv-benchmark
 
 ## Repository layout
 - benchmark/: CUDA/MPI benchmark source.
-- scripts/: build, run, and PCIe topology checks.
+- scripts/: build, run, PCIe topology checks, and statistics (stage_stats.py, kernel_stats.py).
 - docs/: Chinese test design, call chains, measured call-tree report template, and AI Agent prompt.
 - instrumentation/: Host instrumentation design and coverage.
 - patches/: optional Host Trace patch.
+
+## Statistics
+
+Do not aggregate the raw CSVs by hand. Two scripts own the arithmetic and both
+have self-tests:
+
+    python3 scripts/stage_stats.py <trace_dir>              # Host call trees (8 B)
+    python3 scripts/stage_stats.py <trace_dir> --percentiles # add P50/P90/P99
+    python3 scripts/stage_stats.py <trace_dir> --format csv  # one row per node
+    python3 scripts/kernel_stats.py <nsys_dir_or_sqlite>     # GPU kernels
+    python3 scripts/test_stats.py                            # verify both
+
+They enforce the four things that are easy to get wrong:
+
+1. `duration_ns` is nanoseconds; every reported value is microseconds.
+2. The 20 warmup operation windows are dropped per (pid, operation) before any
+   averaging. Leaving them in once produced "groupLaunch mean=4999 us", because
+   the first window contains the one-off P2P preconnect stall (~0.5 s).
+3. Exclusive time is `duration - union(nested intervals)`, never a sum of
+   children, and not inclusive if the trace has a partial overlap.
+4. Conditional paths that never ran print `N/A`, never `0 us`.
+
+Windows whose anchor is far above the median are reported explicitly instead of
+being averaged away.
 
 ## Important
 - Baseline and Trace NCCL builds must be isolated.

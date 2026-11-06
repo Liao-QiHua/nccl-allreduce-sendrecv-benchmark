@@ -119,7 +119,13 @@ class Event(object):
 def read_trace(path):
     """Read one host-<proto>.csv.<pid> file. Returns (proto, events)."""
     base = os.path.basename(path)
-    proto = "Simple" if ".Simple." in base else "LL" if ".LL." in base else "?"
+    # Filenames look like host-Simple.csv.1315783 / host-LL.csv.1315856.
+    proto = "?"
+    stem = base.split(".csv")[0]
+    if stem.endswith("-Simple"):
+        proto = "Simple"
+    elif stem.endswith("-LL"):
+        proto = "LL"
     events = []
     with open(path, newline="") as fh:
         reader = csv.DictReader(fh)
@@ -189,6 +195,11 @@ def build_tree(events, start, end, tid):
     """
     inside = [e for e in events if e.start >= start and e.start < end]
     async_count = sum(1 for e in inside if e.tid != tid)
+    # The same Event objects are re-scanned for every window, so the tree state
+    # must be cleared first; otherwise children accumulate across calls.
+    for e in inside:
+        e.parent = None
+        e.kids = []
     stack = []
     roots = []
     for e in (x for x in inside if x.tid == tid):
@@ -249,12 +260,12 @@ def pct(values, p):
     return values[lo] + (values[hi] - values[lo]) * (k - lo)
 
 
-def collect(events, windows, tid, operation):
+def collect(events, windows, tid, operation, max_ratio):
     """Aggregate per-event-name statistics across all measured windows."""
     incl = defaultdict(list)
     excl = defaultdict(list)
     outliers = 0
-    anchor_ratio = 0.0
+    worst_ratio = 0.0
 
     anchor_durs = [(w[1] - w[0]) * US_PER_NS for w in windows]
     median_anchor = statistics.median(anchor_durs) if anchor_durs else 0.0
@@ -265,9 +276,11 @@ def collect(events, windows, tid, operation):
         for root in roots:
             walk(root, incl, excl)
         d = (end - start) * US_PER_NS
-        if median_anchor > 0 and d > max(anchor_ratio, 1.0) * median_anchor:
-            outliers += 1
-            anchor_ratio = max(anchor_ratio, d / median_anchor)
+        if median_anchor > 0:
+            ratio = d / median_anchor
+            if ratio > max_ratio:
+                outliers += 1
+            worst_ratio = max(worst_ratio, ratio)
         if representative is None or abs(d - median_anchor) < abs(
                 (representative[1] - representative[0]) * US_PER_NS - median_anchor):
             representative = (start, end, anchor)
@@ -294,7 +307,7 @@ def collect(events, windows, tid, operation):
         "stats": stats,
         "async": async_count,
         "outliers": outliers,
-        "max_ratio": anchor_ratio,
+        "max_ratio": worst_ratio,
         "anchor_us": (representative[1] - representative[0]) * US_PER_NS,
         "representative": representative,
         "operation": operation,
@@ -371,7 +384,8 @@ def report(trace_dir, args):
             tids = sorted({e.tid for e in events
                            if e.name == ANCHORS[operation]})
             for tid in tids:
-                result = collect(events, windows, tid, operation)
+                result = collect(events, windows, tid, operation,
+                                 args.max_anchor_ratio)
                 if result is None:
                     continue
                 rank = max((e.rank for e in result["roots"]), default=-1)

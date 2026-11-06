@@ -226,9 +226,60 @@ def test_kernel_short_fails(tmp):
         FAIL.append("short kernel series")
 
 
+def test_proto_from_real_filenames(tmp):
+    print("test: protocol parsed from real trace filenames")
+    for fname, want in (("host-Simple.csv.1315783", "Simple"),
+                        ("host-LL.csv.1315856", "LL")):
+        path = os.path.join(tmp, fname)
+        emit(path, allreduce_rows(120, 10.0, 10.0, 2.0))
+        out = run(tmp)
+        ok = out.splitlines()[0].startswith(want + " / rank")
+        print(("  ok   " if ok else "  FAIL ") + "%s -> %s" % (fname, want))
+        if not ok:
+            FAIL.append("proto " + fname)
+        os.remove(path)
+
+
+def test_no_duplicate_children(tmp):
+    print("test: each node appears once per path (tree state is reset)")
+    emit(os.path.join(tmp, "host-Simple.csv.9191"),
+         allreduce_rows(120, 10.0, 10.0, 2.0))
+    out = run(tmp)
+    body = [ln for ln in out.splitlines() if "()" in ln]
+    names = [ln.split("()")[0].strip() for ln in body]
+    dup = {n for n in names if names.count(n) > 1}
+    ok = not dup
+    print(("  ok   " if ok else "  FAIL ") + "no duplicates %s" % (dup or ""))
+    if not ok:
+        FAIL.append("duplicate children")
+
+
+def test_outlier_warning_threshold(tmp):
+    print("test: outlier warning uses the configured ratio, not 1.0x")
+    rows = []
+    t = 1000
+    for i in range(120):
+        # one measured window is 6x the median
+        a = 60.0 if i == 60 else 10.0
+        s = t
+        e = s + int(a * 1000)
+        rows.append({"event": "ncclAllReduce", "s": s, "e": e})
+        rows.append({"event": "ncclEnqueueCheck",
+                     "s": s + 100, "e": s + 100 + 2000})
+        t = e + 50000
+    emit(os.path.join(tmp, "host-Simple.csv.9292"), rows)
+    out = run(tmp)
+    ok = ("1 个窗口" in out) and ("最大 6.0 倍" in out)
+    print(("  ok   " if ok else "  FAIL ") + "warning reports 1 window at 6.0x")
+    if not ok:
+        FAIL.append("outlier warning")
+
+
 def main():
     tests = [test_warmup_and_units, test_union_exclusive, test_na_marker,
              test_sendrecv_window, test_short_trace_fails,
+             test_proto_from_real_filenames, test_no_duplicate_children,
+             test_outlier_warning_threshold,
              test_kernel_warmup, test_kernel_tail_warning,
              test_kernel_short_fails]
     for t in tests:
